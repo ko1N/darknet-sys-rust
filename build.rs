@@ -130,15 +130,27 @@ fn gen_bindings<P>(include_path: P) -> Result<()>
 where
     P: AsRef<Path>,
 {
-    bindgen::Builder::default()
-        .header(
-            include_path
-                .as_ref()
-                .join("darknet.h")
-                .to_str()
-                .ok_or_else(|| format_err!("cannot create path to darknet.h"))?,
-        )
-        .generate()
+    let mut gen = bindgen::Builder::default().header(
+        include_path
+            .as_ref()
+            .join("darknet.h")
+            .to_str()
+            .ok_or_else(|| format_err!("cannot create path to darknet.h"))?,
+    );
+
+    #[cfg(target_os = "windows")]
+    {
+        let pwd = std::env::current_dir().expect("Unable to retrieve current working directory");
+        let pthreads_path = pwd.clone().join("darknet\\3rdparty\\pthreads\\include");
+        let stb_path = pwd.clone().join("darknet\\3rdparty\\stb\\include");
+
+        gen = gen
+            .clang_arg(format!("-I{}", pthreads_path.to_string_lossy()))
+            .clang_arg(format!("-I{}", stb_path.to_string_lossy()))
+            .clang_arg("-D_TIMESPEC_DEFINED");
+    }
+
+    gen.generate()
         .map_err(|_| format_err!("failed to generate bindings"))?
         .write_to_file(&*BINDINGS_TARGET_PATH)?;
     Ok(())
