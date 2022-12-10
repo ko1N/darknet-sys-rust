@@ -262,21 +262,19 @@ fn try_vcpkg(statik: bool) -> Result<()> {
         env::set_var("VCPKGRS_DYNAMIC", "1");
     }
 
-    let _include_path = vcpkg::find_package("darknet")
+    let include_path = vcpkg::find_package("darknet")
         .map_err(|e| {
             println!("Could not find darknet with vcpkg: {}", e);
         })
         .map(|library| library.include_paths)
-        .ok();
+        .ok()
+        .expect("vcpkg include path not found");
 
     if cfg!(feature = "buildtime-bindgen") {
-        let include_path = env::var_os(DARKNET_INCLUDE_PATH_ENV)
-            .map(|value| PathBuf::from(value))
-            .unwrap_or_else(|| {
-                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("darknet")
-                    .join("include")
-            });
+        let include_path = include_path
+            .first()
+            .expect("vcpkg did not find any include paths")
+            .join("darknet\\darknet.h");
         gen_bindings(include_path)?;
     } else {
         fs::copy(&*BINDINGS_SRC_PATH, &*BINDINGS_TARGET_PATH)
