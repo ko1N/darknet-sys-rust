@@ -18,11 +18,12 @@ anyhow = "1.0"
 bindgen = "0.55"
 cmake = "0.1"
 lazy_static = "1.4"
+vcpkg = "0.2.15"
 
 [features]
 default = ["enable-openmp"]
 buildtime-bindgen = []
-runtime = []
+build = []
 dylib = []
 enable-cuda = []
 enable-cudnn = []

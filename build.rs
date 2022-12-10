@@ -251,6 +251,41 @@ where
     Ok(())
 }
 
+#[cfg(not(target_env = "msvc"))]
+fn try_vcpkg(_statik: bool) -> Result<()> {
+    None
+}
+
+#[cfg(target_env = "msvc")]
+fn try_vcpkg(statik: bool) -> Result<()> {
+    if !statik {
+        env::set_var("VCPKGRS_DYNAMIC", "1");
+    }
+
+    let _include_path = vcpkg::find_package("darknet")
+        .map_err(|e| {
+            println!("Could not find darknet with vcpkg: {}", e);
+        })
+        .map(|library| library.include_paths)
+        .ok();
+
+    if cfg!(feature = "buildtime-bindgen") {
+        let include_path = env::var_os(DARKNET_INCLUDE_PATH_ENV)
+            .map(|value| PathBuf::from(value))
+            .unwrap_or_else(|| {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("darknet")
+                    .join("include")
+            });
+        gen_bindings(include_path)?;
+    } else {
+        fs::copy(&*BINDINGS_SRC_PATH, &*BINDINGS_TARGET_PATH)
+            .expect("Failed to copy bindings.rs to OUT_DIR");
+    }
+
+    Ok(())
+}
+
 fn build_runtime() -> Result<()> {
     if cfg!(feature = "buildtime-bindgen") {
         let include_path = env::var_os(DARKNET_INCLUDE_PATH_ENV)
@@ -280,6 +315,8 @@ fn build_from_source() -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    let statik = env::var("CARGO_FEATURE_STATIC").is_ok();
+
     println!("cargo:rerun-if-env-changed={}", DARKNET_SRC_ENV);
     println!("cargo:rerun-if-env-changed={}", DARKNET_INCLUDE_PATH_ENV);
     println!("cargo:rerun-if-env-changed={}", CUDA_PATH_ENV);
@@ -291,11 +328,19 @@ fn main() -> Result<()> {
     if cfg!(feature = "docs-rs") {
         return Ok(());
     }
-    // build from source by default
-    if cfg!(feature = "runtime") {
-        build_runtime()?;
-    } else {
+
+    if cfg!(feature = "build") {
         build_from_source()?;
+    } else {
+        if try_vcpkg(statik).is_ok() {
+            // vcpkg doesn't detect the "system" dependencies
+            if statik {
+                println!("cargo:rustc-link-lib=darknet");
+            }
+        } else {
+            build_runtime()?;
+        }
     }
+
     Ok(())
 }
