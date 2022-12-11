@@ -253,7 +253,7 @@ where
 
 #[cfg(not(target_env = "msvc"))]
 fn try_vcpkg(_statik: bool) -> Result<()> {
-    None
+    Err(format_err!("vcpkg is not implemented for non msvc targets"))
 }
 
 #[cfg(target_env = "msvc")]
