@@ -299,6 +299,8 @@ fn build_runtime() -> Result<()> {
             .expect("Failed to copy bindings.rs to OUT_DIR");
     }
 
+    println!("cargo:rustc-link-lib=darknet");
+
     Ok(())
 }
 
